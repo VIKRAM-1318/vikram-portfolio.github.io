@@ -68,7 +68,10 @@ const observer = new IntersectionObserver((entries) => {
 }, { threshold: 0.5 });
 counters.forEach(c => observer.observe(c));
 
-// ===== Form Handling with Formspree =====
+// ===== Form Handling with Backend API =====
+// Backend API URL - change this when deploying
+const API_URL = 'http://localhost:3000';
+
 document.getElementById('contact-form')?.addEventListener('submit', async function (e) {
     e.preventDefault();
     const btn = this.querySelector('button');
@@ -77,23 +80,42 @@ document.getElementById('contact-form')?.addEventListener('submit', async functi
     btn.innerHTML = '<span>Sending...</span>';
     btn.disabled = true;
 
+    // Get form data
+    const formData = {
+        name: document.getElementById('name').value,
+        email: document.getElementById('email').value,
+        message: document.getElementById('message').value
+    };
+
     try {
-        const response = await fetch('https://formspree.io/f/rv367629@gmail.com', {
+        const response = await fetch(`${API_URL}/api/contact`, {
             method: 'POST',
-            body: new FormData(this),
-            headers: { 'Accept': 'application/json' }
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(formData)
         });
 
-        if (response.ok) {
+        const data = await response.json();
+
+        if (response.ok && data.success) {
             btn.innerHTML = '<span>Message Sent! ✓</span>';
             btn.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
             this.reset();
+
+            // Show success notification
+            showNotification('✅ ' + data.message, 'success');
         } else {
-            throw new Error('Failed');
+            throw new Error(data.message || 'Failed to send message');
         }
     } catch (error) {
+        console.error('Contact form error:', error);
         btn.innerHTML = '<span>Error! Try again</span>';
         btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+
+        // Show error notification
+        showNotification('❌ ' + error.message, 'error');
     }
 
     setTimeout(() => {
@@ -102,6 +124,40 @@ document.getElementById('contact-form')?.addEventListener('submit', async functi
         btn.disabled = false;
     }, 3000);
 });
+
+// Notification helper function
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        border-radius: 10px;
+        color: white;
+        font-weight: 500;
+        z-index: 10000;
+        animation: slideIn 0.3s ease-out;
+        background: ${type === 'success' ? 'linear-gradient(135deg, #22c55e, #16a34a)' : 'linear-gradient(135deg, #ef4444, #dc2626)'};
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    `;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-in';
+        setTimeout(() => notification.remove(), 300);
+    }, 4000);
+}
+
+// Add notification animations
+const notificationStyle = document.createElement('style');
+notificationStyle.textContent = `
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+`;
+document.head.appendChild(notificationStyle);
 
 // ===== Particles =====
 const particles = document.getElementById('particles');
